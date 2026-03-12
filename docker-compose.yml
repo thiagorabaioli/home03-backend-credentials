@@ -1,0 +1,25 @@
+services:
+  credenciais-backend:
+    build: .
+    container_name: credenciais-backend
+    restart: unless-stopped
+    ports:
+      - "8082:8082"
+    environment:
+      - APP_PROFILE=dev
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://lostandfound-postgres:5432/credenciaisdb
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD}
+      - CORS_ORIGINS=http://localhost:5173,http://192.168.1.143:5173,https://app.sias.world
+      - JWK_SET_URI=http://lostandfound-authserver:9000/oauth2/jwks
+      - MAIL_USERNAME=${MAIL_USERNAME}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
+      - APP_BASE_URL=${APP_BASE_URL:http://localhost:8082}
+      - APP_FRONTEND_URL=${APP_FRONTEND_URL:http://localhost:5173}
+      - SECURITY_EMAILS=${SECURITY_EMAILS:seguranca@mail.com}
+    networks:
+      - lostandfound-network
+
+networks:
+  lostandfound-network:
+    external: true
