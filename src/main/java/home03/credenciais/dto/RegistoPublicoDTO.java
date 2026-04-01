@@ -1,7 +1,9 @@
 package home03.credenciais.dto;
 
 import home03.credenciais.entities.enums.TipoColaborador;
+import home03.credenciais.validators.MaiorDeIdade;
 import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -22,6 +24,7 @@ public class RegistoPublicoDTO {
     private String email;
 
     @NotNull(message = "Data de nascimento é obrigatória")
+    @MaiorDeIdade
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
     private LocalDate dataNascimento;
 
@@ -36,10 +39,12 @@ public class RegistoPublicoDTO {
     private String emailResponsavel;
 
     @NotNull(message = "Validade da credencial é obrigatória")
+    @FutureOrPresent(message = "A validade da credencial não pode ser uma data passada")
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
     private LocalDate dataValidadeCredencial;
 
     @NotNull(message = "Validade da ficha de aptidão é obrigatória")
+    @FutureOrPresent(message = "A validade da ficha de aptidão não pode ser uma data passada")
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
     private LocalDate dataValidadeFichaAptidao;
 
@@ -47,6 +52,7 @@ public class RegistoPublicoDTO {
     private String numApolice;
 
     @NotNull(message = "Validade do seguro é obrigatória")
+    @FutureOrPresent(message = "A validade do seguro não pode ser uma data passada")
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
     private LocalDate dataValidadeSeguro;
 

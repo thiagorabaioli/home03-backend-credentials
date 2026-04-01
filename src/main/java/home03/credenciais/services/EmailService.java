@@ -43,39 +43,46 @@ public class EmailService {
         enviar(c.getEmail(), assunto, corpo);
     }
 
-    /** Email enviado ao responsável com links de aprovação/rejeição */
-    public void enviarPedidoValidacaoResponsavel(Credencial c) {
+    /**
+     * Email enviado à equipa de segurança com toda a informação do colaborador e os links
+     * de aprovação/rejeição. A segurança reencaminha para o responsável de mercado.
+     */
+    public void enviarPedidoValidacaoParaSeguranca(Credencial c, String[] emailsSeguranca) {
         String linkAprovar = baseUrl + "/api/public/validar?token=" + c.getTokenValidacao() + "&acao=APROVAR";
         String linkRejeitar = baseUrl + "/api/public/validar?token=" + c.getTokenValidacao() + "&acao=REJEITAR";
 
-        String assunto = "Novo colaborador para validação – " + c.getNome();
+        String assunto = "Novo pré-registo para validação – " + c.getNome();
         String corpo = """
                 <html><body style="font-family:sans-serif;color:#333;max-width:600px;margin:auto">
-                <h2 style="color:#1a73e8">Validação de credencial de acesso</h2>
-                <p>Foi submetido um novo pré-registo de colaborador externo para a sua validação.</p>
+                <h2 style="color:#1a73e8">Novo pré-registo de colaborador externo</h2>
+                <p>Foi submetido um novo pré-registo. Por favor <strong>reencaminhe este email ao responsável de mercado</strong> para que proceda à validação através dos botões abaixo.</p>
                 <table style="border-collapse:collapse;width:100%%">
                   <tr><td style="padding:6px;border:1px solid #ddd;font-weight:bold">Nome</td><td style="padding:6px;border:1px solid #ddd">%s</td></tr>
                   <tr><td style="padding:6px;border:1px solid #ddd;font-weight:bold">Email</td><td style="padding:6px;border:1px solid #ddd">%s</td></tr>
                   <tr><td style="padding:6px;border:1px solid #ddd;font-weight:bold">Empresa</td><td style="padding:6px;border:1px solid #ddd">%s</td></tr>
-                  <tr><td style="padding:6px;border:1px solid #ddd;font-weight:bold">Tipo</td><td style="padding:6px;border:1px solid #ddd">%s</td></tr>
+                  <tr><td style="padding:6px;border:1px solid #ddd;font-weight:bold">Tipo de Acesso</td><td style="padding:6px;border:1px solid #ddd">%s</td></tr>
+                  <tr><td style="padding:6px;border:1px solid #ddd;font-weight:bold">Email Responsável</td><td style="padding:6px;border:1px solid #ddd">%s</td></tr>
                   <tr><td style="padding:6px;border:1px solid #ddd;font-weight:bold">Val. Credencial</td><td style="padding:6px;border:1px solid #ddd">%s</td></tr>
                   <tr><td style="padding:6px;border:1px solid #ddd;font-weight:bold">Val. Ficha Aptidão</td><td style="padding:6px;border:1px solid #ddd">%s</td></tr>
                   <tr><td style="padding:6px;border:1px solid #ddd;font-weight:bold">Nº Apólice</td><td style="padding:6px;border:1px solid #ddd">%s</td></tr>
                   <tr><td style="padding:6px;border:1px solid #ddd;font-weight:bold">Val. Seguro</td><td style="padding:6px;border:1px solid #ddd">%s</td></tr>
                 </table>
                 <div style="margin:30px 0;text-align:center">
-                  <a href="%s" style="background:#28a745;color:#fff;padding:12px 30px;border-radius:4px;text-decoration:none;font-weight:bold;margin-right:20px">✓ APROVAR</a>
-                  <a href="%s" style="background:#dc3545;color:#fff;padding:12px 30px;border-radius:4px;text-decoration:none;font-weight:bold">✗ REJEITAR</a>
+                  <a href="%s" style="background:#28a745;color:#fff;padding:12px 30px;border-radius:4px;text-decoration:none;font-weight:bold;margin-right:20px">✓ SIM – APROVAR</a>
+                  <a href="%s" style="background:#dc3545;color:#fff;padding:12px 30px;border-radius:4px;text-decoration:none;font-weight:bold">✗ NÃO – REJEITAR</a>
                 </div>
-                <p style="color:#666;font-size:12px">Este link é de utilização única. Se não reconhece este pedido, ignore este email.</p>
+                <p style="color:#666;font-size:12px">Cada link só pode ser utilizado uma vez. Após clicar, a resposta fica registada em sistema.</p>
                 </body></html>
                 """.formatted(
-                    c.getNome(), c.getEmail(), c.getEmpresa(), c.getTipo(),
+                    c.getNome(), c.getEmail(), c.getEmpresa(), c.getTipo(), c.getEmailResponsavel(),
                     c.getDataValidadeCredencial(), c.getDataValidadeFichaAptidao(),
                     c.getNumApolice(), c.getDataValidadeSeguro(),
                     linkAprovar, linkRejeitar
                 );
-        enviar(c.getEmailResponsavel(), assunto, corpo);
+
+        for (String email : emailsSeguranca) {
+            enviar(email.trim(), assunto, corpo);
+        }
     }
 
     /** Email enviado à equipa de segurança quando uma credencial é aprovada */
@@ -94,6 +101,27 @@ public class EmailService {
                 <p style="margin-top:20px">Aceda ao <a href="%s/credenciais">Painel de Segurança</a> para confirmar a entrada.</p>
                 </body></html>
                 """.formatted(c.getNome(), c.getEmpresa(), c.getTipo(), c.getDataValidadeCredencial(), frontendUrl);
+
+        for (String email : emailsSeguranca) {
+            enviar(email.trim(), assunto, corpo);
+        }
+    }
+
+    /** Email enviado à equipa de segurança quando o responsável rejeita uma credencial */
+    public void enviarConfirmacaoRejeicaoSeguranca(Credencial c, String[] emailsSeguranca) {
+        String assunto = "Credencial REJEITADA – " + c.getNome();
+        String corpo = """
+                <html><body style="font-family:sans-serif;color:#333;max-width:600px;margin:auto">
+                <h2 style="color:#dc3545">✗ Credencial Rejeitada</h2>
+                <p>O responsável de mercado <strong>rejeitou</strong> a credencial do colaborador abaixo. O registo foi atualizado em sistema.</p>
+                <table style="border-collapse:collapse;width:100%%">
+                  <tr><td style="padding:6px;border:1px solid #ddd;font-weight:bold">Nome</td><td style="padding:6px;border:1px solid #ddd">%s</td></tr>
+                  <tr><td style="padding:6px;border:1px solid #ddd;font-weight:bold">Empresa</td><td style="padding:6px;border:1px solid #ddd">%s</td></tr>
+                  <tr><td style="padding:6px;border:1px solid #ddd;font-weight:bold">Tipo</td><td style="padding:6px;border:1px solid #ddd">%s</td></tr>
+                </table>
+                <p style="margin-top:20px">Aceda ao <a href="%s/credenciais">Painel de Segurança</a> para consultar o registo.</p>
+                </body></html>
+                """.formatted(c.getNome(), c.getEmpresa(), c.getTipo(), frontendUrl);
 
         for (String email : emailsSeguranca) {
             enviar(email.trim(), assunto, corpo);
@@ -122,8 +150,8 @@ public class EmailService {
             helper.setSubject(assunto);
             helper.setText(corpo, true);
             mailSender.send(msg);
-        } catch (MessagingException e) {
-            // Loga o erro mas não bloqueia o fluxo principal
+        } catch (Exception e) {
+            // Loga o erro mas nunca bloqueia o fluxo principal nem desfaz a transação
             System.err.println("[EmailService] Falha ao enviar email para " + destinatario + ": " + e.getMessage());
         }
     }

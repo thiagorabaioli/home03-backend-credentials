@@ -31,7 +31,8 @@ public class RegistoService {
 
     /**
      * Processa o pré-registo público de um colaborador externo.
-     * Fluxo: guarda credencial → envia email ao colaborador → envia email ao responsável
+     * Fluxo: guarda credencial → envia confirmação ao colaborador → envia pedido de validação à segurança
+     * (a segurança reencaminha para o responsável de mercado que clica SIM ou NÃO)
      */
     @Transactional
     public Credencial processarPreRegisto(RegistoPublicoDTO dto, List<MultipartFile> ficheiros) {
@@ -77,7 +78,7 @@ public class RegistoService {
         credencialRepository.save(saved);
 
         emailService.enviarConfirmacaoColaborador(saved);
-        emailService.enviarPedidoValidacaoResponsavel(saved);
+        emailService.enviarPedidoValidacaoParaSeguranca(saved, securityEmails.split(","));
 
         return saved;
     }
@@ -106,24 +107,36 @@ public class RegistoService {
             credencial.setEstado(EstadoCredencial.REJEITADA);
             credencialRepository.save(credencial);
             emailService.enviarRejeicaoColaborador(credencial);
+            emailService.enviarConfirmacaoRejeicaoSeguranca(credencial, securityEmails.split(","));
             return paginaHtmlResultado("Credencial Rejeitada",
-                "A credencial de <strong>" + credencial.getNome() + "</strong> foi rejeitada. O colaborador foi notificado.", false);
+                "A credencial de <strong>" + credencial.getNome() + "</strong> foi rejeitada. A equipa de segurança foi notificada.", false);
         } else {
             throw new BusinessException("Ação inválida. Use APROVAR ou REJEITAR.");
         }
     }
 
     private String paginaHtmlResultado(String titulo, String mensagem, boolean sucesso) {
-        String cor = sucesso ? "#28a745" : "#dc3545";
+        String cor = sucesso ? "#2f9e44" : "#e03131";
+        String corClara = sucesso ? "#ebfbee" : "#fff5f5";
         String icone = sucesso ? "✓" : "✗";
         return """
                 <!DOCTYPE html>
                 <html lang="pt"><head><meta charset="UTF-8"><title>%s</title>
-                <style>body{font-family:sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;background:#f0f2f5}
-                .card{background:#fff;border-radius:8px;padding:48px 40px;text-align:center;max-width:480px;box-shadow:0 2px 16px rgba(0,0,0,.1)}
-                .icon{width:72px;height:72px;border-radius:50%;background:%s;color:#fff;font-size:36px;display:flex;align-items:center;justify-content:center;margin:0 auto 20px}
-                h1{color:#343a40;font-size:22px}p{color:#6c757d}</style></head>
-                <body><div class="card"><div class="icon">%s</div><h1>%s</h1><p>%s</p></div></body></html>
-                """.formatted(titulo, cor, icone, titulo, mensagem);
+                <style>
+                *{box-sizing:border-box;margin:0;padding:0}
+                body{font-family:'Segoe UI',Arial,sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#f0f4f8}
+                .card{background:#ffffff;border-radius:12px;padding:52px 44px;text-align:center;max-width:460px;width:90%%;box-shadow:0 1px 4px rgba(0,0,0,.06),0 4px 20px rgba(0,0,0,.06)}
+                .icon{width:76px;height:76px;border-radius:50%%;background:%s;color:#fff;font-size:32px;font-weight:bold;display:flex;align-items:center;justify-content:center;margin:0 auto 24px}
+                .badge{display:inline-block;background:%s;color:%s;font-size:12px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;padding:4px 12px;border-radius:20px;margin-bottom:16px}
+                h1{color:#1a202c;font-size:20px;font-weight:600;margin-bottom:12px}
+                p{color:#718096;font-size:15px;line-height:1.6}
+                </style></head>
+                <body><div class="card">
+                  <div class="icon">%s</div>
+                  <div class="badge">%s</div>
+                  <h1>%s</h1>
+                  <p>%s</p>
+                </div></body></html>
+                """.formatted(titulo, cor, corClara, cor, icone, sucesso ? "Concluído" : "Rejeitado", titulo, mensagem);
     }
 }
