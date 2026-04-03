@@ -11,49 +11,90 @@ import java.util.UUID;
 public class CredencialDTO {
 
     private UUID id;
-    private String nome;
-    private String email;
-    private LocalDate dataNascimento;
-    private String empresa;
-    private TipoColaborador tipo;
-    private String emailResponsavel;
-    private LocalDate dataValidadeCredencial;
-    private LocalDate dataValidadeFichaAptidao;
-    private String numApolice;
-    private LocalDate dataValidadeSeguro;
+    private String codigoInterno;
     private EstadoCredencial estado;
-    private LocalDateTime dataCriacao;
-    private int totalDocumentos;
+    private TipoColaborador tipoColaborador;
+    private LocalDate dataInicio;
+    private LocalDate dataFim;
+    private LocalDateTime dataRegisto;
+
+    // Colaborador
+    private UUID colaboradorId;
+    private String colaboradorCodigoInterno;
+    private String colaboradorNome;
+    private String colaboradorEmail;
+
+    // Empresa
+    private UUID empresaId;
+    private String empresaNome;
+    private String responsavelEmail;
+
+    // Seguro
+    private String seguroApolice;
+    private LocalDate seguroDataFim;
+    private boolean seguroValido;
+
+    // Ficha
+    private LocalDate fichaDataValidade;
+    private String fichaResultado;
+    private boolean fichaValida;
 
     public CredencialDTO(Credencial c) {
         this.id = c.getId();
-        this.nome = c.getNome();
-        this.email = c.getEmail();
-        this.dataNascimento = c.getDataNascimento();
-        this.empresa = c.getEmpresa();
-        this.tipo = c.getTipo();
-        this.emailResponsavel = c.getEmailResponsavel();
-        this.dataValidadeCredencial = c.getDataValidadeCredencial();
-        this.dataValidadeFichaAptidao = c.getDataValidadeFichaAptidao();
-        this.numApolice = c.getNumApolice();
-        this.dataValidadeSeguro = c.getDataValidadeSeguro();
+        this.codigoInterno = c.getCodigoInterno();
         this.estado = c.getEstado();
-        this.dataCriacao = c.getDataCriacao();
-        this.totalDocumentos = c.getDocumentos().size();
+        this.tipoColaborador = c.getTipoColaborador();
+        this.dataInicio = c.getDataInicio();
+        this.dataFim = c.getDataFim();
+        this.dataRegisto = c.getDataRegisto();
+
+        if (c.getColaborador() != null) {
+            this.colaboradorId = c.getColaborador().getId();
+            this.colaboradorCodigoInterno = c.getColaborador().getCodigoInterno();
+            this.colaboradorNome = c.getColaborador().getNome();
+            this.colaboradorEmail = c.getColaborador().getEmail();
+        }
+
+        if (c.getEmpresa() != null) {
+            this.empresaId = c.getEmpresa().getId();
+            this.empresaNome = c.getEmpresa().getNome();
+            if (c.getEmpresa().getResponsavel() != null) {
+                this.responsavelEmail = c.getEmpresa().getResponsavel().getEmail();
+            }
+        }
+
+        if (c.getSeguro() != null) {
+            this.seguroApolice = c.getSeguro().getApolice();
+            this.seguroDataFim = c.getSeguro().getDataFim();
+            this.seguroValido = c.getSeguro().isValido();
+        }
+
+        if (c.getFichaAptidaoMedica() != null) {
+            this.fichaDataValidade = c.getFichaAptidaoMedica().getDataValidade();
+            this.fichaResultado = c.getFichaAptidaoMedica().getResultado() != null
+                    ? c.getFichaAptidaoMedica().getResultado().name() : null;
+            this.fichaValida = c.getFichaAptidaoMedica().isValida();
+        }
     }
 
     public UUID getId() { return id; }
-    public String getNome() { return nome; }
-    public String getEmail() { return email; }
-    public LocalDate getDataNascimento() { return dataNascimento; }
-    public String getEmpresa() { return empresa; }
-    public TipoColaborador getTipo() { return tipo; }
-    public String getEmailResponsavel() { return emailResponsavel; }
-    public LocalDate getDataValidadeCredencial() { return dataValidadeCredencial; }
-    public LocalDate getDataValidadeFichaAptidao() { return dataValidadeFichaAptidao; }
-    public String getNumApolice() { return numApolice; }
-    public LocalDate getDataValidadeSeguro() { return dataValidadeSeguro; }
+    public String getCodigoInterno() { return codigoInterno; }
     public EstadoCredencial getEstado() { return estado; }
-    public LocalDateTime getDataCriacao() { return dataCriacao; }
-    public int getTotalDocumentos() { return totalDocumentos; }
+    public TipoColaborador getTipoColaborador() { return tipoColaborador; }
+    public LocalDate getDataInicio() { return dataInicio; }
+    public LocalDate getDataFim() { return dataFim; }
+    public LocalDateTime getDataRegisto() { return dataRegisto; }
+    public UUID getColaboradorId() { return colaboradorId; }
+    public String getColaboradorCodigoInterno() { return colaboradorCodigoInterno; }
+    public String getColaboradorNome() { return colaboradorNome; }
+    public String getColaboradorEmail() { return colaboradorEmail; }
+    public UUID getEmpresaId() { return empresaId; }
+    public String getEmpresaNome() { return empresaNome; }
+    public String getResponsavelEmail() { return responsavelEmail; }
+    public String getSeguroApolice() { return seguroApolice; }
+    public LocalDate getSeguroDataFim() { return seguroDataFim; }
+    public boolean isSeguroValido() { return seguroValido; }
+    public LocalDate getFichaDataValidade() { return fichaDataValidade; }
+    public String getFichaResultado() { return fichaResultado; }
+    public boolean isFichaValida() { return fichaValida; }
 }

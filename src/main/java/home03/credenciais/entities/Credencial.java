@@ -3,9 +3,6 @@ package home03.credenciais.entities;
 import home03.credenciais.entities.enums.EstadoCredencial;
 import home03.credenciais.entities.enums.TipoColaborador;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -22,97 +19,79 @@ public class Credencial {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @NotBlank
-    private String nome;
+    @Column(unique = true, nullable = false)
+    private String codigoInterno;
 
-    @Email
-    @NotBlank
-    private String email;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "colaborador_id", nullable = false)
+    private ColaboradorExterno colaborador;
 
-    @NotNull
-    private LocalDate dataNascimento;
-
-    @NotBlank
-    private String empresa;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "empresa_id", nullable = false)
+    private Empresa empresa;
 
     @Enumerated(EnumType.STRING)
-    @NotNull
-    private TipoColaborador tipo;
-
-    @Email
-    @NotBlank
-    private String emailResponsavel;
-
-    @NotNull
-    private LocalDate dataValidadeCredencial;
-
-    @NotNull
-    private LocalDate dataValidadeFichaAptidao;
-
-    @NotBlank
-    private String numApolice;
-
-    @NotNull
-    private LocalDate dataValidadeSeguro;
+    private TipoColaborador tipoColaborador;
 
     @Enumerated(EnumType.STRING)
     private EstadoCredencial estado = EstadoCredencial.PENDENTE;
 
-    @Column(unique = true)
-    private String tokenValidacao = UUID.randomUUID().toString();
+    private LocalDate dataInicio;
 
-    private LocalDateTime dataCriacao = LocalDateTime.now();
+    private LocalDate dataFim;
+
+    private LocalDateTime dataRegisto = LocalDateTime.now();
+
+    @OneToOne(mappedBy = "credencial", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Seguro seguro;
+
+    @OneToOne(mappedBy = "credencial", cascade = CascadeType.ALL, orphanRemoval = true)
+    private FichaAptidaoMedica fichaAptidaoMedica;
+
+    @OneToOne(mappedBy = "credencial", cascade = CascadeType.ALL, orphanRemoval = true)
+    private HorarioTrabalho horarioTrabalho;
 
     @OneToMany(mappedBy = "credencial", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Documento> documentos = new ArrayList<>();
+    private List<HistoricoEstado> historico = new ArrayList<>();
 
     public Credencial() {
     }
 
     public UUID getId() { return id; }
 
-    public String getNome() { return nome; }
-    public void setNome(String nome) { this.nome = nome; }
+    public String getCodigoInterno() { return codigoInterno; }
+    public void setCodigoInterno(String codigoInterno) { this.codigoInterno = codigoInterno; }
 
-    public String getEmail() { return email; }
-    public void setEmail(String email) { this.email = email; }
+    public ColaboradorExterno getColaborador() { return colaborador; }
+    public void setColaborador(ColaboradorExterno colaborador) { this.colaborador = colaborador; }
 
-    public LocalDate getDataNascimento() { return dataNascimento; }
-    public void setDataNascimento(LocalDate dataNascimento) { this.dataNascimento = dataNascimento; }
+    public Empresa getEmpresa() { return empresa; }
+    public void setEmpresa(Empresa empresa) { this.empresa = empresa; }
 
-    public String getEmpresa() { return empresa; }
-    public void setEmpresa(String empresa) { this.empresa = empresa; }
-
-    public TipoColaborador getTipo() { return tipo; }
-    public void setTipo(TipoColaborador tipo) { this.tipo = tipo; }
-
-    public String getEmailResponsavel() { return emailResponsavel; }
-    public void setEmailResponsavel(String emailResponsavel) { this.emailResponsavel = emailResponsavel; }
-
-    public LocalDate getDataValidadeCredencial() { return dataValidadeCredencial; }
-    public void setDataValidadeCredencial(LocalDate dataValidadeCredencial) { this.dataValidadeCredencial = dataValidadeCredencial; }
-
-    public LocalDate getDataValidadeFichaAptidao() { return dataValidadeFichaAptidao; }
-    public void setDataValidadeFichaAptidao(LocalDate dataValidadeFichaAptidao) { this.dataValidadeFichaAptidao = dataValidadeFichaAptidao; }
-
-    public String getNumApolice() { return numApolice; }
-    public void setNumApolice(String numApolice) { this.numApolice = numApolice; }
-
-    public LocalDate getDataValidadeSeguro() { return dataValidadeSeguro; }
-    public void setDataValidadeSeguro(LocalDate dataValidadeSeguro) { this.dataValidadeSeguro = dataValidadeSeguro; }
+    public TipoColaborador getTipoColaborador() { return tipoColaborador; }
+    public void setTipoColaborador(TipoColaborador tipoColaborador) { this.tipoColaborador = tipoColaborador; }
 
     public EstadoCredencial getEstado() { return estado; }
     public void setEstado(EstadoCredencial estado) { this.estado = estado; }
 
-    public String getTokenValidacao() { return tokenValidacao; }
+    public LocalDate getDataInicio() { return dataInicio; }
+    public void setDataInicio(LocalDate dataInicio) { this.dataInicio = dataInicio; }
 
-    public LocalDateTime getDataCriacao() { return dataCriacao; }
+    public LocalDate getDataFim() { return dataFim; }
+    public void setDataFim(LocalDate dataFim) { this.dataFim = dataFim; }
 
-    public List<Documento> getDocumentos() { return documentos; }
-    public void addDocumento(Documento documento) {
-        documento.setCredencial(this);
-        this.documentos.add(documento);
-    }
+    public LocalDateTime getDataRegisto() { return dataRegisto; }
+
+    public Seguro getSeguro() { return seguro; }
+    public void setSeguro(Seguro seguro) { this.seguro = seguro; }
+
+    public FichaAptidaoMedica getFichaAptidaoMedica() { return fichaAptidaoMedica; }
+    public void setFichaAptidaoMedica(FichaAptidaoMedica fichaAptidaoMedica) { this.fichaAptidaoMedica = fichaAptidaoMedica; }
+
+    public HorarioTrabalho getHorarioTrabalho() { return horarioTrabalho; }
+    public void setHorarioTrabalho(HorarioTrabalho horarioTrabalho) { this.horarioTrabalho = horarioTrabalho; }
+
+    public List<HistoricoEstado> getHistorico() { return historico; }
 
     @Override
     public boolean equals(Object o) {

@@ -52,8 +52,12 @@ public class ResourceServerConfig {
         http.csrf(csrf -> csrf.disable());
 
         http.authorizeHttpRequests(authorize -> authorize
-            // Endpoints públicos — sem autenticação (formulário QR code e link de validação)
-            .requestMatchers("/api/public/**").permitAll()
+            // Registo público via QR code
+            .requestMatchers("/public/registo").permitAll()
+            // Links de aprovação/rejeição do RM (acesso via token UUID no path)
+            .requestMatchers("/aprovacao/**").permitAll()
+            // Lista de empresas para o formulário público
+            .requestMatchers("/api/empresas/todas").permitAll()
             .requestMatchers("/favicon.ico", "/error").permitAll()
             // Tudo o resto requer token JWT válido
             .anyRequest().authenticated()

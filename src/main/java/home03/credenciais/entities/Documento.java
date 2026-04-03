@@ -4,41 +4,40 @@ import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
 import java.util.Objects;
+import java.util.UUID;
 
 @Entity
 @Table(name = "tb_documento")
 public class Documento {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "credencial_id", nullable = false)
-    private Credencial credencial;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
     private String nomeOriginal;
+
     private String contentType;
 
-    @Lob
-    @Column(columnDefinition = "BLOB")
-    private byte[] conteudo;
+    private Long tamanho;
+
+    // Path relativo no filesystem do Pi: {uuid-credencial}/{nome-ficheiro}
+    // Nunca guardar o conteúdo como LOB na base de dados
+    @Column(nullable = false)
+    private String caminhoFicheiro;
 
     private LocalDateTime dataUpload = LocalDateTime.now();
 
     public Documento() {
     }
 
-    public Documento(String nomeOriginal, String contentType, byte[] conteudo) {
+    public Documento(String nomeOriginal, String contentType, Long tamanho, String caminhoFicheiro) {
         this.nomeOriginal = nomeOriginal;
         this.contentType = contentType;
-        this.conteudo = conteudo;
+        this.tamanho = tamanho;
+        this.caminhoFicheiro = caminhoFicheiro;
     }
 
-    public Long getId() { return id; }
-
-    public Credencial getCredencial() { return credencial; }
-    public void setCredencial(Credencial credencial) { this.credencial = credencial; }
+    public UUID getId() { return id; }
 
     public String getNomeOriginal() { return nomeOriginal; }
     public void setNomeOriginal(String nomeOriginal) { this.nomeOriginal = nomeOriginal; }
@@ -46,8 +45,11 @@ public class Documento {
     public String getContentType() { return contentType; }
     public void setContentType(String contentType) { this.contentType = contentType; }
 
-    public byte[] getConteudo() { return conteudo; }
-    public void setConteudo(byte[] conteudo) { this.conteudo = conteudo; }
+    public Long getTamanho() { return tamanho; }
+    public void setTamanho(Long tamanho) { this.tamanho = tamanho; }
+
+    public String getCaminhoFicheiro() { return caminhoFicheiro; }
+    public void setCaminhoFicheiro(String caminhoFicheiro) { this.caminhoFicheiro = caminhoFicheiro; }
 
     public LocalDateTime getDataUpload() { return dataUpload; }
 
