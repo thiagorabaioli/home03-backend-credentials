@@ -1,7 +1,9 @@
 package home03.credenciais.services;
 
 import home03.credenciais.dto.CredencialDTO;
+import home03.credenciais.entities.ColaboradorExterno;
 import home03.credenciais.entities.Credencial;
+import home03.credenciais.entities.Empresa;
 import home03.credenciais.entities.enums.EstadoCredencial;
 import home03.credenciais.entities.enums.TipoColaborador;
 import home03.credenciais.repositories.CredencialRepository;
@@ -33,6 +35,9 @@ class CredencialServiceTest {
 
     @Mock
     private CredencialRepository credencialRepository;
+
+    @Mock
+    private FluxoAprovacaoService fluxoAprovacaoService;
 
     @InjectMocks
     private CredencialService credencialService;
@@ -74,7 +79,7 @@ class CredencialServiceTest {
 
         CredencialDTO resultado = credencialService.obterPorId(id);
 
-        assertThat(resultado.getNome()).isEqualTo("João Silva");
+        assertThat(resultado.getColaboradorNome()).isEqualTo("João Silva");
         assertThat(resultado.getEstado()).isEqualTo(EstadoCredencial.APROVADA);
         assertThat(resultado.getId()).isEqualTo(id);
     }
@@ -92,66 +97,61 @@ class CredencialServiceTest {
     // --- autorizarEntrada ---
 
     @Test
-    void autorizarEntrada_credencialAprovada_deveMudarEstadoParaEntradaAutorizada() {
+    void autorizarEntrada_credencialAprovada_deveDelegarAoFluxoERetornarDTO() {
         Credencial c = credencial(EstadoCredencial.APROVADA);
         UUID id = (UUID) ReflectionTestUtils.getField(c, "id");
-        when(credencialRepository.findById(id)).thenReturn(Optional.of(c));
-        when(credencialRepository.save(c)).thenReturn(c);
+        Credencial cAtualizado = credencial(EstadoCredencial.ENTRADA_AUTORIZADA);
+        ReflectionTestUtils.setField(cAtualizado, "id", id);
+        when(fluxoAprovacaoService.autorizarEntrada(id, "user@test.com")).thenReturn(cAtualizado);
 
-        CredencialDTO resultado = credencialService.autorizarEntrada(id);
+        CredencialDTO resultado = credencialService.autorizarEntrada(id, "user@test.com");
 
         assertThat(resultado.getEstado()).isEqualTo(EstadoCredencial.ENTRADA_AUTORIZADA);
-        verify(credencialRepository).save(c);
+        verify(fluxoAprovacaoService).autorizarEntrada(id, "user@test.com");
     }
 
     @Test
-    void autorizarEntrada_estadoPendente_deveLancarBusinessException() {
-        Credencial c = credencial(EstadoCredencial.PENDENTE);
-        UUID id = (UUID) ReflectionTestUtils.getField(c, "id");
-        when(credencialRepository.findById(id)).thenReturn(Optional.of(c));
+    void autorizarEntrada_estadoInvalido_devePropagaarBusinessException() {
+        UUID id = UUID.randomUUID();
+        when(fluxoAprovacaoService.autorizarEntrada(eq(id), any()))
+            .thenThrow(new BusinessException("Transição inválida: credencial está em PENDENTE mas é necessário APROVADA para ir para ENTRADA_AUTORIZADA"));
 
-        assertThatThrownBy(() -> credencialService.autorizarEntrada(id))
+        assertThatThrownBy(() -> credencialService.autorizarEntrada(id, "user@test.com"))
             .isInstanceOf(BusinessException.class)
             .hasMessageContaining("APROVADA");
-
-        verify(credencialRepository, never()).save(any());
     }
 
     @Test
-    void autorizarEntrada_estadoRejeitada_deveLancarBusinessException() {
-        Credencial c = credencial(EstadoCredencial.REJEITADA);
-        UUID id = (UUID) ReflectionTestUtils.getField(c, "id");
-        when(credencialRepository.findById(id)).thenReturn(Optional.of(c));
-
-        assertThatThrownBy(() -> credencialService.autorizarEntrada(id))
-            .isInstanceOf(BusinessException.class);
-    }
-
-    @Test
-    void autorizarEntrada_naoExiste_deveLancarResourceNotFoundException() {
+    void autorizarEntrada_naoExiste_devePropagaarResourceNotFoundException() {
         UUID id = UUID.randomUUID();
-        when(credencialRepository.findById(id)).thenReturn(Optional.empty());
+        when(fluxoAprovacaoService.autorizarEntrada(eq(id), any()))
+            .thenThrow(new ResourceNotFoundException("Credencial não encontrada: " + id));
 
-        assertThatThrownBy(() -> credencialService.autorizarEntrada(id))
+        assertThatThrownBy(() -> credencialService.autorizarEntrada(id, "user@test.com"))
             .isInstanceOf(ResourceNotFoundException.class);
     }
 
     // --- helper ---
 
     private Credencial credencial(EstadoCredencial estado) {
+        ColaboradorExterno ce = new ColaboradorExterno();
+        ce.setCodigoInterno("CE-2026-0001");
+        ce.setNome("João Silva");
+        ce.setEmail("joao@empresa.com");
+        ce.setDataNascimento(LocalDate.of(1990, 5, 20));
+
+        Empresa empresa = new Empresa();
+        empresa.setNome("Empresa Teste");
+
         Credencial c = new Credencial();
         ReflectionTestUtils.setField(c, "id", UUID.randomUUID());
-        c.setNome("João Silva");
-        c.setEmail("joao@empresa.com");
-        c.setDataNascimento(LocalDate.of(1990, 5, 20));
-        c.setEmpresa("Empresa Teste");
-        c.setTipo(TipoColaborador.REPOSICAO);
-        c.setEmailResponsavel("resp@empresa.com");
-        c.setDataValidadeCredencial(LocalDate.now().plusMonths(6));
-        c.setDataValidadeFichaAptidao(LocalDate.now().plusMonths(6));
-        c.setNumApolice("AP001");
-        c.setDataValidadeSeguro(LocalDate.now().plusMonths(12));
+        c.setCodigoInterno("CD-2026-0001");
+        c.setColaborador(ce);
+        c.setEmpresa(empresa);
+        c.setTipoColaborador(TipoColaborador.REPOSICAO);
         c.setEstado(estado);
+        c.setDataInicio(LocalDate.now());
+        c.setDataFim(LocalDate.now().plusMonths(6));
         return c;
     }
 }

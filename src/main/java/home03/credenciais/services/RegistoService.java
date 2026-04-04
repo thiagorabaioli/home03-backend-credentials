@@ -74,7 +74,7 @@ public class RegistoService {
 
         // Verificar se já existe credencial ativa para (CE + empresa + tipoColaborador)
         boolean temCredencialAtiva = credencialRepository
-                .existsByColaboradorCodigoInternoAndEmpresaIdAndTipoColaboradorAndEstadoNotIn(
+                .existsByColaboradorCodigoInternoAndEmpresaIdAndTipoColaboradorAndEstadoIn(
                         colaborador.getCodigoInterno(), empresa.getId(),
                         dto.getTipoColaborador(), ESTADOS_ATIVOS);
         if (temCredencialAtiva) {

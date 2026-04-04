@@ -1,30 +1,35 @@
 package home03.credenciais.services;
 
 import home03.credenciais.dto.RegistoPublicoDTO;
+import home03.credenciais.entities.ColaboradorExterno;
 import home03.credenciais.entities.Credencial;
+import home03.credenciais.entities.Empresa;
+import home03.credenciais.entities.ResponsavelMercado;
+import home03.credenciais.entities.enums.DiaSemana;
 import home03.credenciais.entities.enums.EstadoCredencial;
+import home03.credenciais.entities.enums.ResultadoFicha;
 import home03.credenciais.entities.enums.TipoColaborador;
+import home03.credenciais.repositories.ColaboradorRepository;
 import home03.credenciais.repositories.CredencialRepository;
+import home03.credenciais.repositories.EmpresaRepository;
 import home03.credenciais.services.exceptions.BusinessException;
 import home03.credenciais.services.exceptions.ResourceNotFoundException;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
-import java.util.List;
+import java.time.LocalTime;
 import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -34,128 +39,110 @@ class RegistoServiceTest {
     private CredencialRepository credencialRepository;
 
     @Mock
+    private ColaboradorRepository colaboradorRepository;
+
+    @Mock
+    private EmpresaRepository empresaRepository;
+
+    @Mock
+    private DocumentoService documentoService;
+
+    @Mock
+    private AuditService auditService;
+
+    @Mock
     private EmailService emailService;
+
+    @Mock
+    private CodigoService codigoService;
 
     @InjectMocks
     private RegistoService registoService;
 
-    @BeforeEach
-    void setUp() {
-        ReflectionTestUtils.setField(registoService, "securityEmails", "seg@test.com");
-    }
-
-    // --- processarPreRegisto ---
+    // --- registar: erro empresa ---
 
     @Test
-    void processarPreRegisto_semFicheiros_deveSalvarEEnviarEmails() {
+    void registar_empresaNaoEncontrada_deveLancarResourceNotFoundException() {
+        RegistoPublicoDTO dto = dtoValido();
+        when(empresaRepository.findById(dto.getEmpresaId())).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> registoService.registar(dto, null, null))
+            .isInstanceOf(ResourceNotFoundException.class)
+            .hasMessageContaining("Empresa");
+    }
+
+    @Test
+    void registar_empresaSemResponsavel_deveLancarBusinessException() {
+        RegistoPublicoDTO dto = dtoValido();
+        Empresa empresa = new Empresa();
+        empresa.setNome("Empresa Teste");
+        // responsavel null por omissão
+        when(empresaRepository.findById(dto.getEmpresaId())).thenReturn(Optional.of(empresa));
+
+        assertThatThrownBy(() -> registoService.registar(dto, null, null))
+            .isInstanceOf(BusinessException.class)
+            .hasMessageContaining("responsável");
+    }
+
+    // --- registar: erro código interno ---
+
+    @Test
+    void registar_codigoInternoDesconhecido_deveLancarBusinessException() {
+        RegistoPublicoDTO dto = dtoValido();
+        dto.setCodigoInterno("CE-2026-9999");
+        when(empresaRepository.findById(dto.getEmpresaId())).thenReturn(Optional.of(empresaComResponsavel()));
+        when(colaboradorRepository.findByCodigoInterno("CE-2026-9999")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> registoService.registar(dto, null, null))
+            .isInstanceOf(BusinessException.class)
+            .hasMessageContaining("CE-2026-9999");
+    }
+
+    // --- registar: fluxo novo CE ---
+
+    @Test
+    void registar_novoCE_deveSalvarCredencialEnviarEmailComCodigo() {
+        RegistoPublicoDTO dto = dtoValido();
+        when(empresaRepository.findById(dto.getEmpresaId())).thenReturn(Optional.of(empresaComResponsavel()));
+        when(codigoService.gerarCodigoCE()).thenReturn("CE-2026-0001");
+        when(codigoService.gerarCodigoCD()).thenReturn("CD-2026-0001");
+        when(colaboradorRepository.save(any())).thenAnswer(inv -> {
+            ColaboradorExterno ce = inv.getArgument(0);
+            ReflectionTestUtils.setField(ce, "id", UUID.randomUUID());
+            return ce;
+        });
+        when(credencialRepository.existsByColaboradorCodigoInternoAndEmpresaIdAndTipoColaboradorAndEstadoIn(
+            any(), any(), any(), any())).thenReturn(false);
         when(credencialRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        Credencial resultado = registoService.processarPreRegisto(dtoValido(), null);
+        Credencial resultado = registoService.registar(dto, null, null);
 
-        assertThat(resultado.getEstado()).isEqualTo(EstadoCredencial.AGUARDA_VALIDACAO);
-        assertThat(resultado.getNome()).isEqualTo("João Silva");
-        verify(credencialRepository, times(2)).save(any());
+        assertThat(resultado.getEstado()).isEqualTo(EstadoCredencial.AGUARDA_VALIDACAO_ES);
+        assertThat(resultado.getCodigoInterno()).isEqualTo("CD-2026-0001");
+        verify(emailService).enviarCodigoColaborador(any());
+        verify(auditService).registarTransicao(any(),
+            eq(EstadoCredencial.PENDENTE),
+            eq(EstadoCredencial.AGUARDA_VALIDACAO_ES),
+            eq("SISTEMA"), any());
+    }
+
+    @Test
+    void registar_ceExistente_deveSalvarCredencialEEnviarEmailConfirmacao() {
+        RegistoPublicoDTO dto = dtoValido();
+        dto.setCodigoInterno("CE-2026-0001");
+        ColaboradorExterno ce = colaborador("CE-2026-0001");
+        when(empresaRepository.findById(dto.getEmpresaId())).thenReturn(Optional.of(empresaComResponsavel()));
+        when(colaboradorRepository.findByCodigoInterno("CE-2026-0001")).thenReturn(Optional.of(ce));
+        when(codigoService.gerarCodigoCD()).thenReturn("CD-2026-0002");
+        when(credencialRepository.existsByColaboradorCodigoInternoAndEmpresaIdAndTipoColaboradorAndEstadoIn(
+            any(), any(), any(), any())).thenReturn(false);
+        when(credencialRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        Credencial resultado = registoService.registar(dto, null, null);
+
+        assertThat(resultado.getEstado()).isEqualTo(EstadoCredencial.AGUARDA_VALIDACAO_ES);
         verify(emailService).enviarConfirmacaoColaborador(any());
-        verify(emailService).enviarPedidoValidacaoParaSeguranca(any(), any());
-    }
-
-    @Test
-    void processarPreRegisto_comDocumento_deveAnexarDocumentoNaCredencial() {
-        when(credencialRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        MultipartFile ficheiro = new MockMultipartFile("doc", "ficha.pdf", "application/pdf", "conteudo".getBytes());
-
-        Credencial resultado = registoService.processarPreRegisto(dtoValido(), List.of(ficheiro));
-
-        assertThat(resultado.getDocumentos()).hasSize(1);
-        assertThat(resultado.getDocumentos().get(0).getNomeOriginal()).isEqualTo("ficha.pdf");
-    }
-
-    @Test
-    void processarPreRegisto_ficheiroVazioIgnorado_naoDeveAnexarDocumento() {
-        when(credencialRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        MultipartFile vazio = new MockMultipartFile("doc", "vazio.pdf", "application/pdf", new byte[0]);
-
-        Credencial resultado = registoService.processarPreRegisto(dtoValido(), List.of(vazio));
-
-        assertThat(resultado.getDocumentos()).isEmpty();
-    }
-
-    @Test
-    void processarPreRegisto_maisDe3Ficheiros_deveLancarBusinessException() {
-        List<MultipartFile> ficheiros = List.of(
-            new MockMultipartFile("f1", "f1.pdf", "application/pdf", "a".getBytes()),
-            new MockMultipartFile("f2", "f2.pdf", "application/pdf", "b".getBytes()),
-            new MockMultipartFile("f3", "f3.pdf", "application/pdf", "c".getBytes()),
-            new MockMultipartFile("f4", "f4.pdf", "application/pdf", "d".getBytes())
-        );
-
-        assertThatThrownBy(() -> registoService.processarPreRegisto(dtoValido(), ficheiros))
-            .isInstanceOf(BusinessException.class)
-            .hasMessage("Máximo de 3 documentos permitido");
-
-        verify(credencialRepository, never()).save(any());
-    }
-
-    // --- processarValidacao ---
-
-    @Test
-    void processarValidacao_tokenInvalido_deveLancarResourceNotFoundException() {
-        when(credencialRepository.findByTokenValidacao("token-invalido")).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> registoService.processarValidacao("token-invalido", "APROVAR"))
-            .isInstanceOf(ResourceNotFoundException.class);
-    }
-
-    @Test
-    void processarValidacao_credencialJaProcessada_deveRetornarHtmlSemAlterarEstado() {
-        Credencial credencial = credencialComEstado(EstadoCredencial.APROVADA);
-        when(credencialRepository.findByTokenValidacao("token-123")).thenReturn(Optional.of(credencial));
-
-        String html = registoService.processarValidacao("token-123", "APROVAR");
-
-        assertThat(html).contains("já foi");
-        assertThat(credencial.getEstado()).isEqualTo(EstadoCredencial.APROVADA);
-        verify(credencialRepository, never()).save(any());
-        verify(emailService, never()).enviarNotificacaoSeguranca(any(), any());
-    }
-
-    @Test
-    void processarValidacao_aprovar_deveAprovarCredencialNotificarSegurancaERetornarHtmlSucesso() {
-        Credencial credencial = credencialComEstado(EstadoCredencial.AGUARDA_VALIDACAO);
-        when(credencialRepository.findByTokenValidacao("token-ok")).thenReturn(Optional.of(credencial));
-        when(credencialRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-
-        String html = registoService.processarValidacao("token-ok", "APROVAR");
-
-        assertThat(credencial.getEstado()).isEqualTo(EstadoCredencial.APROVADA);
-        assertThat(html).contains("Aprovada");
-        verify(credencialRepository).save(credencial);
-        verify(emailService).enviarNotificacaoSeguranca(eq(credencial), any());
-    }
-
-    @Test
-    void processarValidacao_rejeitar_deveRejeitarCredencialNotificarColaboradorSegurancaERetornarHtml() {
-        Credencial credencial = credencialComEstado(EstadoCredencial.AGUARDA_VALIDACAO);
-        when(credencialRepository.findByTokenValidacao("token-rej")).thenReturn(Optional.of(credencial));
-        when(credencialRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-
-        String html = registoService.processarValidacao("token-rej", "REJEITAR");
-
-        assertThat(credencial.getEstado()).isEqualTo(EstadoCredencial.REJEITADA);
-        assertThat(html).contains("Rejeitada");
-        verify(credencialRepository).save(credencial);
-        verify(emailService).enviarRejeicaoColaborador(credencial);
-        verify(emailService).enviarConfirmacaoRejeicaoSeguranca(eq(credencial), any());
-    }
-
-    @Test
-    void processarValidacao_acaoInvalida_deveLancarBusinessException() {
-        Credencial credencial = credencialComEstado(EstadoCredencial.AGUARDA_VALIDACAO);
-        when(credencialRepository.findByTokenValidacao("token-ok")).thenReturn(Optional.of(credencial));
-
-        assertThatThrownBy(() -> registoService.processarValidacao("token-ok", "CANCELAR"))
-            .isInstanceOf(BusinessException.class)
-            .hasMessageContaining("APROVAR ou REJEITAR");
+        verify(emailService, never()).enviarCodigoColaborador(any());
     }
 
     // --- helpers ---
@@ -165,29 +152,42 @@ class RegistoServiceTest {
         dto.setNome("João Silva");
         dto.setEmail("joao@empresa.com");
         dto.setDataNascimento(LocalDate.of(1990, 5, 20));
-        dto.setEmpresa("Empresa Teste");
-        dto.setTipo(TipoColaborador.REPOSICAO);
-        dto.setEmailResponsavel("resp@empresa.com");
-        dto.setDataValidadeCredencial(LocalDate.now().plusMonths(6));
-        dto.setDataValidadeFichaAptidao(LocalDate.now().plusMonths(6));
-        dto.setNumApolice("AP001");
-        dto.setDataValidadeSeguro(LocalDate.now().plusMonths(12));
+        dto.setEmpresaId(UUID.randomUUID());
+        dto.setTipoColaborador(TipoColaborador.REPOSICAO);
+        dto.setDataInicio(LocalDate.now());
+        dto.setDataFim(LocalDate.now().plusMonths(6));
+        dto.setApolice("AP001");
+        dto.setSeguradora("Seguros PT");
+        dto.setSeguroDataInicio(LocalDate.now());
+        dto.setSeguroDataFim(LocalDate.now().plusMonths(12));
+        dto.setFichaDataEmissao(LocalDate.now());
+        dto.setFichaDataValidade(LocalDate.now().plusMonths(6));
+        dto.setFichaResultado(ResultadoFicha.APTO);
+        dto.setDiasSemana(Set.of(DiaSemana.SEGUNDA));
+        dto.setHoraEntrada(LocalTime.of(9, 0));
+        dto.setHoraSaida(LocalTime.of(17, 0));
         return dto;
     }
 
-    private Credencial credencialComEstado(EstadoCredencial estado) {
-        Credencial c = new Credencial();
-        c.setNome("João Silva");
-        c.setEmail("joao@empresa.com");
-        c.setDataNascimento(LocalDate.of(1990, 5, 20));
-        c.setEmpresa("Empresa Teste");
-        c.setTipo(TipoColaborador.REPOSICAO);
-        c.setEmailResponsavel("resp@empresa.com");
-        c.setDataValidadeCredencial(LocalDate.now().plusMonths(6));
-        c.setDataValidadeFichaAptidao(LocalDate.now().plusMonths(6));
-        c.setNumApolice("AP001");
-        c.setDataValidadeSeguro(LocalDate.now().plusMonths(12));
-        c.setEstado(estado);
-        return c;
+    private Empresa empresaComResponsavel() {
+        ResponsavelMercado resp = new ResponsavelMercado();
+        resp.setNome("Responsável");
+        resp.setEmail("resp@empresa.com");
+
+        Empresa empresa = new Empresa();
+        empresa.setNome("Empresa Teste");
+        empresa.setResponsavel(resp);
+        ReflectionTestUtils.setField(empresa, "id", UUID.randomUUID());
+        return empresa;
+    }
+
+    private ColaboradorExterno colaborador(String codigo) {
+        ColaboradorExterno ce = new ColaboradorExterno();
+        ce.setCodigoInterno(codigo);
+        ce.setNome("João Silva");
+        ce.setEmail("joao@empresa.com");
+        ce.setDataNascimento(LocalDate.of(1990, 5, 20));
+        ReflectionTestUtils.setField(ce, "id", UUID.randomUUID());
+        return ce;
     }
 }

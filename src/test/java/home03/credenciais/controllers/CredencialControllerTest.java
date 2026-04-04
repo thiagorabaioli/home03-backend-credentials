@@ -2,7 +2,9 @@ package home03.credenciais.controllers;
 
 import home03.credenciais.config.ResourceServerConfig;
 import home03.credenciais.dto.CredencialDTO;
+import home03.credenciais.entities.ColaboradorExterno;
 import home03.credenciais.entities.Credencial;
+import home03.credenciais.entities.Empresa;
 import home03.credenciais.entities.enums.EstadoCredencial;
 import home03.credenciais.entities.enums.TipoColaborador;
 import home03.credenciais.services.CredencialService;
@@ -26,6 +28,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -55,10 +58,10 @@ class CredencialControllerTest {
             .thenReturn(new PageImpl<>(List.of(credencialDTO())));
 
         mockMvc.perform(get("/api/credenciais")
-                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_SECURITY"))))
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_VIGILANTE"))))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.content").isArray())
-            .andExpect(jsonPath("$.content[0].nome").value("João Silva"));
+            .andExpect(jsonPath("$.content[0].colaboradorNome").value("João Silva"));
     }
 
     @Test
@@ -87,8 +90,8 @@ class CredencialControllerTest {
         mockMvc.perform(get("/api/credenciais/{id}", dto.getId())
                 .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_VIGILANTE"))))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.nome").value("João Silva"))
-            .andExpect(jsonPath("$.empresa").value("Empresa Teste"));
+            .andExpect(jsonPath("$.colaboradorNome").value("João Silva"))
+            .andExpect(jsonPath("$.empresaNome").value("Empresa Teste"));
     }
 
     @Test
@@ -98,7 +101,7 @@ class CredencialControllerTest {
             .thenThrow(new ResourceNotFoundException("Credencial não encontrada: " + id));
 
         mockMvc.perform(get("/api/credenciais/{id}", id)
-                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_SECURITY"))))
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_VIGILANTE"))))
             .andExpect(status().isNotFound());
     }
 
@@ -113,23 +116,23 @@ class CredencialControllerTest {
     @Test
     void autorizarEntrada_credencialAprovada_deveRetornar200() throws Exception {
         CredencialDTO dto = credencialDTO();
-        when(credencialService.autorizarEntrada(dto.getId())).thenReturn(dto);
+        when(credencialService.autorizarEntrada(eq(dto.getId()), any(String.class))).thenReturn(dto);
 
         mockMvc.perform(post("/api/credenciais/{id}/autorizar-entrada", dto.getId())
-                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_SECURITY"))))
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_VIGILANTE"))))
             .andExpect(status().isOk());
     }
 
     @Test
     void autorizarEntrada_estadoInvalido_deveRetornar400() throws Exception {
         UUID id = UUID.randomUUID();
-        when(credencialService.autorizarEntrada(id))
-            .thenThrow(new BusinessException("Só é possível autorizar entrada de credenciais com estado APROVADA"));
+        when(credencialService.autorizarEntrada(eq(id), any(String.class)))
+            .thenThrow(new BusinessException("Transição inválida"));
 
         mockMvc.perform(post("/api/credenciais/{id}/autorizar-entrada", id)
-                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_SECURITY"))))
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_VIGILANTE"))))
             .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.error").value("Só é possível autorizar entrada de credenciais com estado APROVADA"));
+            .andExpect(jsonPath("$.error").value("Transição inválida"));
     }
 
     @Test
@@ -141,19 +144,24 @@ class CredencialControllerTest {
     // --- helper ---
 
     private CredencialDTO credencialDTO() {
+        ColaboradorExterno ce = new ColaboradorExterno();
+        ce.setCodigoInterno("CE-2026-0001");
+        ce.setNome("João Silva");
+        ce.setEmail("joao@empresa.com");
+        ce.setDataNascimento(LocalDate.of(1990, 5, 20));
+
+        Empresa empresa = new Empresa();
+        empresa.setNome("Empresa Teste");
+
         Credencial c = new Credencial();
         ReflectionTestUtils.setField(c, "id", UUID.randomUUID());
-        c.setNome("João Silva");
-        c.setEmail("joao@empresa.com");
-        c.setDataNascimento(LocalDate.of(1990, 5, 20));
-        c.setEmpresa("Empresa Teste");
-        c.setTipo(TipoColaborador.REPOSICAO);
-        c.setEmailResponsavel("resp@empresa.com");
-        c.setDataValidadeCredencial(LocalDate.now().plusMonths(6));
-        c.setDataValidadeFichaAptidao(LocalDate.now().plusMonths(6));
-        c.setNumApolice("AP001");
-        c.setDataValidadeSeguro(LocalDate.now().plusMonths(12));
+        c.setCodigoInterno("CD-2026-0001");
+        c.setColaborador(ce);
+        c.setEmpresa(empresa);
+        c.setTipoColaborador(TipoColaborador.REPOSICAO);
         c.setEstado(EstadoCredencial.APROVADA);
+        c.setDataInicio(LocalDate.now());
+        c.setDataFim(LocalDate.now().plusMonths(6));
         return new CredencialDTO(c);
     }
 }
