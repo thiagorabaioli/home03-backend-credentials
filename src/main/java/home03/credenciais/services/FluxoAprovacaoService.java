@@ -67,8 +67,21 @@ public class FluxoAprovacaoService {
         if (credencial.getSeguro() == null || !credencial.getSeguro().isValido()) {
             throw new BusinessException("Seguro inválido ou expirado — não é possível avançar para aprovação.");
         }
-        if (credencial.getFichaAptidaoMedica() == null || !credencial.getFichaAptidaoMedica().isValida()) {
+        // FAM é opcional no registo (CE tem 15 dias para apresentar)
+        // Só bloqueia se foi submetida e está inválida (NAO_APTO ou expirada)
+        if (credencial.getFichaAptidaoMedica() != null
+                && credencial.getFichaAptidaoMedica().getResultado() != null
+                && !credencial.getFichaAptidaoMedica().isValida()) {
             throw new BusinessException("Ficha de aptidão médica inválida ou expirada — não é possível avançar para aprovação.");
+        }
+
+        // Empresa tem de ter responsável de mercado para receber o link
+        if (credencial.getEmpresa() == null
+                || credencial.getEmpresa().getResponsavel() == null
+                || credencial.getEmpresa().getResponsavel().getEmail() == null) {
+            throw new BusinessException(
+                    "A empresa não tem responsável de mercado associado. "
+                    + "Atribua um responsável à empresa antes de enviar para aprovação.");
         }
 
         EstadoCredencial anterior = credencial.getEstado();

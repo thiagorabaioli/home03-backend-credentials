@@ -32,10 +32,6 @@ public class Seguro {
     @NotNull
     private LocalDate dataFim;
 
-    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
-    @JoinColumn(name = "documento_id")
-    private Documento documento;
-
     public Seguro() {
     }
 
@@ -55,9 +51,6 @@ public class Seguro {
 
     public LocalDate getDataFim() { return dataFim; }
     public void setDataFim(LocalDate dataFim) { this.dataFim = dataFim; }
-
-    public Documento getDocumento() { return documento; }
-    public void setDocumento(Documento documento) { this.documento = documento; }
 
     public boolean isValido() {
         return dataFim != null && !LocalDate.now().isAfter(dataFim);

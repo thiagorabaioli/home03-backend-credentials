@@ -21,8 +21,8 @@ public interface CredencialRepository extends JpaRepository<Credencial, UUID>,
 
     Page<Credencial> findByEstado(EstadoCredencial estado, Pageable pageable);
 
-    boolean existsByColaboradorCodigoInternoAndEmpresaIdAndTipoColaboradorAndEstadoIn(
-            String codigoInterno, UUID empresaId, TipoColaborador tipoColaborador,
+    boolean existsByColaboradorCodigoInternoAndEmpresaNomeAndTipoColaboradorAndEstadoIn(
+            String codigoInterno, String empresaNome, TipoColaborador tipoColaborador,
             List<EstadoCredencial> estadosAtivos);
 
     /** Credenciais com dataFim anterior a hoje e estado ainda activo */

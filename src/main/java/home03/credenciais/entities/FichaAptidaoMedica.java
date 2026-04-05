@@ -2,7 +2,6 @@ package home03.credenciais.entities;
 
 import home03.credenciais.entities.enums.ResultadoFicha;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.NotNull;
 
 import java.time.LocalDate;
 import java.util.Objects;
@@ -20,19 +19,12 @@ public class FichaAptidaoMedica {
     @JoinColumn(name = "credencial_id", nullable = false, unique = true)
     private Credencial credencial;
 
-    @NotNull
     private LocalDate dataEmissao;
 
-    @NotNull
     private LocalDate dataValidade;
 
     @Enumerated(EnumType.STRING)
-    @NotNull
     private ResultadoFicha resultado;
-
-    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
-    @JoinColumn(name = "documento_id")
-    private Documento documento;
 
     public FichaAptidaoMedica() {
     }
@@ -50,9 +42,6 @@ public class FichaAptidaoMedica {
 
     public ResultadoFicha getResultado() { return resultado; }
     public void setResultado(ResultadoFicha resultado) { this.resultado = resultado; }
-
-    public Documento getDocumento() { return documento; }
-    public void setDocumento(Documento documento) { this.documento = documento; }
 
     public boolean isValida() {
         return resultado == ResultadoFicha.APTO

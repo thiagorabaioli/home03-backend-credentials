@@ -27,8 +27,10 @@ public class Credencial {
     private ColaboradorExterno colaborador;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "empresa_id", nullable = false)
+    @JoinColumn(name = "empresa_id")
     private Empresa empresa;
+
+    private String empresaNome;
 
     @Enumerated(EnumType.STRING)
     private TipoColaborador tipoColaborador;
@@ -52,6 +54,9 @@ public class Credencial {
     private HorarioTrabalho horarioTrabalho;
 
     @OneToMany(mappedBy = "credencial", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Documento> documentos = new ArrayList<>();
+
+    @OneToMany(mappedBy = "credencial", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<HistoricoEstado> historico = new ArrayList<>();
 
     public Credencial() {
@@ -67,6 +72,9 @@ public class Credencial {
 
     public Empresa getEmpresa() { return empresa; }
     public void setEmpresa(Empresa empresa) { this.empresa = empresa; }
+
+    public String getEmpresaNome() { return empresaNome; }
+    public void setEmpresaNome(String empresaNome) { this.empresaNome = empresaNome; }
 
     public TipoColaborador getTipoColaborador() { return tipoColaborador; }
     public void setTipoColaborador(TipoColaborador tipoColaborador) { this.tipoColaborador = tipoColaborador; }
@@ -90,6 +98,8 @@ public class Credencial {
 
     public HorarioTrabalho getHorarioTrabalho() { return horarioTrabalho; }
     public void setHorarioTrabalho(HorarioTrabalho horarioTrabalho) { this.horarioTrabalho = horarioTrabalho; }
+
+    public List<Documento> getDocumentos() { return documentos; }
 
     public List<HistoricoEstado> getHistorico() { return historico; }
 

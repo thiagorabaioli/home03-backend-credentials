@@ -14,7 +14,7 @@ import java.util.UUID;
 
 /**
  * DTO recebido via multipart/form-data no endpoint público de registo.
- * Os ficheiros (documentoSeguro, documentoFicha) são tratados separadamente no controller.
+ * Os ficheiros (documentos) são tratados separadamente no controller (1 a 3 anexos genéricos).
  */
 public class RegistoPublicoDTO {
 
@@ -33,8 +33,6 @@ public class RegistoPublicoDTO {
     @NotBlank(message = "Email é obrigatório")
     private String email;
 
-    private String telefone;
-
     @NotNull(message = "Data de nascimento é obrigatória")
     @MaiorDeIdade
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
@@ -42,8 +40,8 @@ public class RegistoPublicoDTO {
 
     // --- Credencial ---
 
-    @NotNull(message = "Empresa é obrigatória")
-    private UUID empresaId;
+    @NotBlank(message = "Nome da empresa é obrigatório")
+    private String empresaNome;
 
     @NotNull(message = "Tipo de colaborador é obrigatório")
     private TipoColaborador tipoColaborador;
@@ -74,18 +72,15 @@ public class RegistoPublicoDTO {
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
     private LocalDate seguroDataFim;
 
-    // --- Ficha de Aptidão Médica ---
+    // --- Ficha de Aptidão Médica (opcional — CE tem 15 dias para apresentar) ---
 
-    @NotNull(message = "Data de emissão da ficha é obrigatória")
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
     private LocalDate fichaDataEmissao;
 
-    @NotNull(message = "Data de validade da ficha é obrigatória")
     @FutureOrPresent(message = "A validade da ficha não pode ser uma data passada")
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
     private LocalDate fichaDataValidade;
 
-    @NotNull(message = "Resultado da ficha é obrigatório")
     private ResultadoFicha fichaResultado;
 
     // --- Horário de Trabalho ---
@@ -94,9 +89,11 @@ public class RegistoPublicoDTO {
     private Set<DiaSemana> diasSemana;
 
     @NotNull(message = "Hora de entrada é obrigatória")
+    @DateTimeFormat(iso = DateTimeFormat.ISO.TIME)
     private LocalTime horaEntrada;
 
     @NotNull(message = "Hora de saída é obrigatória")
+    @DateTimeFormat(iso = DateTimeFormat.ISO.TIME)
     private LocalTime horaSaida;
 
     public RegistoPublicoDTO() {
@@ -111,14 +108,11 @@ public class RegistoPublicoDTO {
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
 
-    public String getTelefone() { return telefone; }
-    public void setTelefone(String telefone) { this.telefone = telefone; }
-
     public LocalDate getDataNascimento() { return dataNascimento; }
     public void setDataNascimento(LocalDate dataNascimento) { this.dataNascimento = dataNascimento; }
 
-    public UUID getEmpresaId() { return empresaId; }
-    public void setEmpresaId(UUID empresaId) { this.empresaId = empresaId; }
+    public String getEmpresaNome() { return empresaNome; }
+    public void setEmpresaNome(String empresaNome) { this.empresaNome = empresaNome; }
 
     public TipoColaborador getTipoColaborador() { return tipoColaborador; }
     public void setTipoColaborador(TipoColaborador tipoColaborador) { this.tipoColaborador = tipoColaborador; }

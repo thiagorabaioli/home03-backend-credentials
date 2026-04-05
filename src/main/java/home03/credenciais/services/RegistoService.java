@@ -49,16 +49,16 @@ public class RegistoService {
     }
 
     @Transactional
-    public Credencial registar(RegistoPublicoDTO dto,
-                               MultipartFile documentoSeguro,
-                               MultipartFile documentoFicha) {
+    public Credencial registar(RegistoPublicoDTO dto, List<MultipartFile> documentos) {
 
-        Empresa empresa = empresaRepository.findById(dto.getEmpresaId())
-                .orElseThrow(() -> new ResourceNotFoundException("Empresa não encontrada"));
-
-        if (empresa.getResponsavel() == null) {
-            throw new BusinessException("A empresa não tem responsável de mercado configurado.");
-        }
+        // Procurar empresa pelo nome (texto livre) — se não encontrar, criar com placeholder
+        Empresa empresa = empresaRepository.findByNome(dto.getEmpresaNome())
+                .orElseGet(() -> {
+                    Empresa novaEmpresa = new Empresa();
+                    novaEmpresa.setNome(dto.getEmpresaNome());
+                    novaEmpresa.setNif("PENDENTE");
+                    return empresaRepository.save(novaEmpresa);
+                });
 
         // Reutilizar CE por código interno (se fornecido) ou criar novo
         boolean ceNovo = false;
@@ -74,8 +74,8 @@ public class RegistoService {
 
         // Verificar se já existe credencial ativa para (CE + empresa + tipoColaborador)
         boolean temCredencialAtiva = credencialRepository
-                .existsByColaboradorCodigoInternoAndEmpresaIdAndTipoColaboradorAndEstadoIn(
-                        colaborador.getCodigoInterno(), empresa.getId(),
+                .existsByColaboradorCodigoInternoAndEmpresaNomeAndTipoColaboradorAndEstadoIn(
+                        colaborador.getCodigoInterno(), dto.getEmpresaNome(),
                         dto.getTipoColaborador(), ESTADOS_ATIVOS);
         if (temCredencialAtiva) {
             throw new BusinessException(
@@ -87,6 +87,7 @@ public class RegistoService {
         credencial.setCodigoInterno(codigoService.gerarCodigoCD());
         credencial.setColaborador(colaborador);
         credencial.setEmpresa(empresa);
+        credencial.setEmpresaNome(dto.getEmpresaNome());
         credencial.setTipoColaborador(dto.getTipoColaborador());
         credencial.setDataInicio(dto.getDataInicio());
         credencial.setDataFim(dto.getDataFim());
@@ -100,23 +101,18 @@ public class RegistoService {
         seguro.setSeguradora(dto.getSeguradora());
         seguro.setDataInicio(dto.getSeguroDataInicio());
         seguro.setDataFim(dto.getSeguroDataFim());
-        if (documentoSeguro != null && !documentoSeguro.isEmpty()) {
-            Documento docSeguro = documentoService.guardar(documentoSeguro, credencial.getId());
-            seguro.setDocumento(docSeguro);
-        }
         credencial.setSeguro(seguro);
 
-        // Ficha de Aptidão Médica
-        FichaAptidaoMedica ficha = new FichaAptidaoMedica();
-        ficha.setCredencial(credencial);
-        ficha.setDataEmissao(dto.getFichaDataEmissao());
-        ficha.setDataValidade(dto.getFichaDataValidade());
-        ficha.setResultado(dto.getFichaResultado());
-        if (documentoFicha != null && !documentoFicha.isEmpty()) {
-            Documento docFicha = documentoService.guardar(documentoFicha, credencial.getId());
-            ficha.setDocumento(docFicha);
+        // Ficha de Aptidão Médica (opcional — CE tem 15 dias para apresentar)
+        if (dto.getFichaDataEmissao() != null || dto.getFichaDataValidade() != null
+                || dto.getFichaResultado() != null) {
+            FichaAptidaoMedica ficha = new FichaAptidaoMedica();
+            ficha.setCredencial(credencial);
+            ficha.setDataEmissao(dto.getFichaDataEmissao());
+            ficha.setDataValidade(dto.getFichaDataValidade());
+            ficha.setResultado(dto.getFichaResultado());
+            credencial.setFichaAptidaoMedica(ficha);
         }
-        credencial.setFichaAptidaoMedica(ficha);
 
         // Horário de Trabalho
         HorarioTrabalho horario = new HorarioTrabalho();
@@ -126,6 +122,17 @@ public class RegistoService {
         horario.setHoraSaida(dto.getHoraSaida());
         credencial.setHorarioTrabalho(horario);
 
+        // Documentos genéricos (1 a 3 ficheiros)
+        if (documentos != null) {
+            for (MultipartFile ficheiro : documentos) {
+                if (ficheiro != null && !ficheiro.isEmpty()) {
+                    Documento doc = documentoService.guardar(ficheiro, credencial.getId());
+                    doc.setCredencial(credencial);
+                    credencial.getDocumentos().add(doc);
+                }
+            }
+        }
+
         Credencial saved = credencialRepository.save(credencial);
 
         // Transição para AGUARDA_VALIDACAO_ES
@@ -134,7 +141,7 @@ public class RegistoService {
         auditService.registarTransicao(saved, EstadoCredencial.PENDENTE,
                 EstadoCredencial.AGUARDA_VALIDACAO_ES, "SISTEMA", "Registo público submetido");
 
-        // Notificações: confirmação ao CE; se novo, enviar o código interno
+        // Notificações
         if (ceNovo) {
             emailService.enviarCodigoColaborador(saved);
         } else {
@@ -149,7 +156,6 @@ public class RegistoService {
         ce.setCodigoInterno(codigoService.gerarCodigoCE());
         ce.setNome(dto.getNome());
         ce.setEmail(dto.getEmail());
-        ce.setTelefone(dto.getTelefone());
         ce.setDataNascimento(dto.getDataNascimento());
         return colaboradorRepository.save(ce);
     }

@@ -20,6 +20,10 @@ public class Documento {
 
     private Long tamanho;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "credencial_id")
+    private Credencial credencial;
+
     // Path relativo no filesystem do Pi: {uuid-credencial}/{nome-ficheiro}
     // Nunca guardar o conteúdo como LOB na base de dados
     @Column(nullable = false)
@@ -50,6 +54,9 @@ public class Documento {
 
     public String getCaminhoFicheiro() { return caminhoFicheiro; }
     public void setCaminhoFicheiro(String caminhoFicheiro) { this.caminhoFicheiro = caminhoFicheiro; }
+
+    public Credencial getCredencial() { return credencial; }
+    public void setCredencial(Credencial credencial) { this.credencial = credencial; }
 
     public LocalDateTime getDataUpload() { return dataUpload; }
 

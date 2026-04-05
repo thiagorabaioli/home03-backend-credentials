@@ -7,6 +7,7 @@ import home03.credenciais.services.exceptions.ResourceNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -33,6 +34,16 @@ public class ControllerExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ValidationErrorDTO> validacao(MethodArgumentNotValidException e, HttpServletRequest req) {
+        HttpStatus status = HttpStatus.UNPROCESSABLE_ENTITY;
+        ValidationErrorDTO err = new ValidationErrorDTO(Instant.now(), status.value(), "Dados inválidos", req.getRequestURI());
+        for (FieldError f : e.getBindingResult().getFieldErrors()) {
+            err.addError(f.getField(), f.getDefaultMessage());
+        }
+        return ResponseEntity.status(status).body(err);
+    }
+
+    @ExceptionHandler(BindException.class)
+    public ResponseEntity<ValidationErrorDTO> bindError(BindException e, HttpServletRequest req) {
         HttpStatus status = HttpStatus.UNPROCESSABLE_ENTITY;
         ValidationErrorDTO err = new ValidationErrorDTO(Instant.now(), status.value(), "Dados inválidos", req.getRequestURI());
         for (FieldError f : e.getBindingResult().getFieldErrors()) {

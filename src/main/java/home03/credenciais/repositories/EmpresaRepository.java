@@ -13,4 +13,6 @@ public interface EmpresaRepository extends JpaRepository<Empresa, UUID> {
     Optional<Empresa> findByNif(String nif);
 
     boolean existsByNif(String nif);
+
+    Optional<Empresa> findByNome(String nome);
 }

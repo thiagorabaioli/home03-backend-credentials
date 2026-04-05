@@ -27,8 +27,6 @@ public class ColaboradorExterno {
     @NotBlank
     private String email;
 
-    private String telefone;
-
     @NotNull
     private LocalDate dataNascimento;
 
@@ -45,9 +43,6 @@ public class ColaboradorExterno {
 
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
-
-    public String getTelefone() { return telefone; }
-    public void setTelefone(String telefone) { this.telefone = telefone; }
 
     public LocalDate getDataNascimento() { return dataNascimento; }
     public void setDataNascimento(LocalDate dataNascimento) { this.dataNascimento = dataNascimento; }
